@@ -1,4 +1,4 @@
-package com.skytexcoder.calculatorapplication
+package com.skytexcoder.mobilecomputingcoursekotlinjetpackcomposesuperapplication
 
 import org.junit.Test
 

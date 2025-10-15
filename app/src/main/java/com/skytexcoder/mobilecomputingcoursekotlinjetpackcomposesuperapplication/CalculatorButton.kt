@@ -1,4 +1,4 @@
-package com.skytexcoder.calculatorapplication
+package com.skytexcoder.mobilecomputingcoursekotlinjetpackcomposesuperapplication
 
 import android.view.SoundEffectConstants
 import androidx.compose.foundation.background
@@ -27,8 +27,8 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.skytexcoder.calculatorapplication.ui.theme.Cyan
-import com.skytexcoder.calculatorapplication.ui.theme.Red
+import com.skytexcoder.mobilecomputingcoursekotlinjetpackcomposesuperapplication.ui.theme.Cyan
+import com.skytexcoder.mobilecomputingcoursekotlinjetpackcomposesuperapplication.ui.theme.Red
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.delay

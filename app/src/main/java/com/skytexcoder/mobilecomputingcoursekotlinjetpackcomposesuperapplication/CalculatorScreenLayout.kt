@@ -1,4 +1,4 @@
-package com.skytexcoder.calculatorapplication
+package com.skytexcoder.mobilecomputingcoursekotlinjetpackcomposesuperapplication
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -20,22 +20,20 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.navigation.NavController
 import java.math.BigDecimal
 import java.text.NumberFormat
 import java.util.Locale
@@ -95,7 +93,7 @@ val buttonIconsMap: HashMap<String, ImageVector> = hashMapOf(
 )
 
 @Composable
-fun CalculatorLayout(modifier: Modifier = Modifier, viewModel: CalculatorViewModel) {
+fun ScientificCalculatorApplicationScreenLayout(modifier: Modifier = Modifier, viewModel: CalculatorViewModel, navController: NavController) {
 
     // set the second text color hex code to 0xFF212121 for when you finally figure out how to add a dark mode / light mode switch into the application.
     val textColor = MaterialTheme.colorScheme.onSecondary

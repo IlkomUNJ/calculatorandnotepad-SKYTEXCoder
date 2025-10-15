@@ -19,6 +19,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Calculator Application"
+rootProject.name = "MobileComputingCourseKotlinJetpackComposeSuperApplication"
 include(":app")
  

@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.skytexcoder.calculatorapplication"
+    namespace = "com.skytexcoder.mobilecomputingcoursekotlinjetpackcomposesuperapplication"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.skytexcoder.calculatorapplication"
+        applicationId = "com.skytexcoder.mobilecomputingcoursekotlinjetpackcomposesuperapplication"
         minSdk = 21
         targetSdk = 36
         versionCode = 1
@@ -55,6 +55,7 @@ dependencies {
     implementation("androidx.compose.runtime:runtime-livedata:1.9.1")
     implementation("androidx.compose.runtime:runtime-rxjava2:1.9.1")
     implementation("org.mozilla:rhino:1.8.0")
+    implementation("androidx.navigation:navigation-compose:2.8.0-beta05")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
