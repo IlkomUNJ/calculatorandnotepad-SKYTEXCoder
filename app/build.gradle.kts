@@ -2,6 +2,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("com.google.devtools.ksp") version "2.0.21-1.0.27"
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.0.21"
 }
 
 android {
@@ -40,6 +42,7 @@ android {
 }
 
 dependencies {
+    val room_sqlite_version = "2.6.1"
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -56,6 +59,10 @@ dependencies {
     implementation("androidx.compose.runtime:runtime-rxjava2:1.9.1")
     implementation("org.mozilla:rhino:1.8.0")
     implementation("androidx.navigation:navigation-compose:2.8.0-beta05")
+    implementation("androidx.room:room-runtime:$room_sqlite_version")
+    ksp("androidx.room:room-compiler:$room_sqlite_version")
+    implementation("androidx.room:room-ktx:${room_sqlite_version}")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

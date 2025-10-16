@@ -27,7 +27,7 @@ fun SuperApplicationMenuScreenLayout(navController: NavController) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "You are currently on the Super Application Menu Screen Layout",
+            text = "You are currently on the\nSuper Application Menu Screen Layout",
             color = MaterialTheme.colorScheme.onSecondary,
             style = MaterialTheme.typography.headlineSmall,
             textAlign = TextAlign.Center
@@ -49,7 +49,7 @@ fun SuperApplicationMenuScreenLayout(navController: NavController) {
         }
         Button(
             onClick = {
-                navController.navigate("notepad_rich_text_editor_screen_layout")
+                navController.navigate("notepad_rich_text_editor_menu_list_screen_layout")
             },
             modifier = Modifier.padding(top = 24.dp),
             colors = ButtonDefaults.buttonColors(

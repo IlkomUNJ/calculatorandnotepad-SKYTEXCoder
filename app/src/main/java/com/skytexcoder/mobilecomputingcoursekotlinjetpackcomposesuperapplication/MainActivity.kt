@@ -3,39 +3,34 @@ package com.skytexcoder.mobilecomputingcoursekotlinjetpackcomposesuperapplicatio
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.rememberNavController
 import androidx.lifecycle.ViewModelProvider
+import androidx.navigation.NavType
 import androidx.navigation.compose.composable
-import com.skytexcoder.mobilecomputingcoursekotlinjetpackcomposesuperapplication.ui.theme.CalculatorApplicationTheme
+import androidx.navigation.navArgument
+import com.skytexcoder.mobilecomputingcoursekotlinjetpackcomposesuperapplication.ui.theme.AndroidSuperApplicationTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // To Support Edge-To-Edge Layout Rendering, uncomment the following line:
+        // To Support Edge-To-Edge Screen Layout Rendering, uncomment the following line:
         // enableEdgeToEdge()
-        val calculatorViewModel = ViewModelProvider(this)[CalculatorViewModel::class.java]
         setContent {
-            CalculatorApplicationTheme {
-                ApplicationNavigation(calculatorViewModel = calculatorViewModel)
+            AndroidSuperApplicationTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background,
+                ) {
+                    AndroidSuperApplicationNavigation(calculatorViewModel = ViewModelProvider(this)[CalculatorViewModel::class.java])
+                }
             }
-        }
-    }
-}
-
-@Composable
-fun ApplicationNavigation(calculatorViewModel: CalculatorViewModel) {
-    val navigationController = rememberNavController()
-    NavHost(navController = navigationController, startDestination = "super_application_menu_screen_layout") {
-        composable("super_application_menu_screen_layout") {
-            SuperApplicationMenuScreenLayout(navController = navigationController)
-        }
-        composable("scientific_calculator_application_screen_layout") {
-            ScientificCalculatorApplicationScreenLayout(viewModel = calculatorViewModel, navController = navigationController)
-        }
-        composable("notepad_rich_text_editor_screen_layout") {
-            NotepadRichTextEditorScreenLayout(navController = navigationController)
         }
     }
 }
