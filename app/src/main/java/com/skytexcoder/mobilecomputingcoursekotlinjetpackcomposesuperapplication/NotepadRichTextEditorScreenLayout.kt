@@ -228,7 +228,7 @@ private fun TextFormattingToolbar(
             Spacer(modifier = Modifier.weight(1f))
             IconButton(
                 onClick = onTextFontSizeDecrease,
-                enabled = userInterfaceState.currentTextFontSize > NotesEditorViewModel.MIN_FONT_SIZE
+                enabled = userInterfaceState.currentTextFontSize > NotesEditorViewModel.MINIMUM_TEXT_FONT_SIZE_IN_PIXELS
             ) {
                 Icon(Icons.Default.Remove, contentDescription = "Decrease The Font Size")
             }
@@ -240,7 +240,7 @@ private fun TextFormattingToolbar(
             )
             IconButton(
                 onClick = onTextFontSizeIncrease,
-                enabled = userInterfaceState.currentTextFontSize < NotesEditorViewModel.MAX_FONT_SIZE
+                enabled = userInterfaceState.currentTextFontSize < NotesEditorViewModel.MAXIMUM_TEXT_FONT_SIZE_IN_PIXELS
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Increase The Font Size")
             }

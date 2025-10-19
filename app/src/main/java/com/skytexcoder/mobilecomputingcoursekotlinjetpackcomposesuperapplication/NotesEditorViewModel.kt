@@ -49,9 +49,9 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
     private var isNewNote: Boolean = true
 
     companion object {
-        const val MIN_FONT_SIZE = 8
-        const val MAX_FONT_SIZE = 40
-        private const val DEFAULT_APPLIED_FONT_SIZE = 16
+        const val MINIMUM_TEXT_FONT_SIZE_IN_PIXELS = 8
+        const val MAXIMUM_TEXT_FONT_SIZE_IN_PIXELS = 40
+        private const val DEFAULT_APPLIED_TEXT_FONT_SIZE_IN_PIXELS = 16
     }
 
     init {
@@ -100,7 +100,6 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
     fun updateContent(newContent: TextFieldValue) {
         val old = _userInterfaceState.value.noteContent
 
-        // Selection or composition change only -> keep our annotated string intact.
         if (old.text == newContent.text) {
             _userInterfaceState.update {
                 it.copy(
@@ -113,7 +112,6 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
             return
         }
 
-        // Text changed -> remap spans over the edit and apply sticky typing styles.
         val diff = computeDiff(old.text, newContent.text)
         val active = currentActiveStyle()
         val shouldApplyActive =
@@ -121,7 +119,7 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
                     _userInterfaceState.value.isTextBoldToggleCurrentlyEnabled ||
                             _userInterfaceState.value.isTextItalicToggleCurrentlyEnabled ||
                             _userInterfaceState.value.isTextUnderLineToggleCurrentlyEnabled ||
-                            _userInterfaceState.value.currentTextFontSize != DEFAULT_APPLIED_FONT_SIZE
+                            _userInterfaceState.value.currentTextFontSize != DEFAULT_APPLIED_TEXT_FONT_SIZE_IN_PIXELS
                     )
 
         val newAnnotated = rebuildAnnotatedAfterEdit(
@@ -198,29 +196,22 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
         val builder = AnnotatedString.Builder()
         builder.append(newPlainText)
 
-        // Remap old spans across the edit
         for (range in oldAnnotated.spanStyles) {
             val s = range.start
             val e = range.end
             val item = range.item
 
             when {
-                // Completely before the edit
                 e <= start -> builder.safeAdd(item, s, e)
 
-                // Completely after the removed range -> shift by delta
                 s >= oldRemovedEnd -> builder.safeAdd(item, s + delta, e + delta)
 
                 else -> {
-                    // Overlaps the edited region
-                    // Left piece before edit
                     if (s < start) builder.safeAdd(item, s, start)
-                    // Right piece after removed segment
                     if (e > oldRemovedEnd) {
                         val rightLen = e - oldRemovedEnd
                         builder.safeAdd(item, insertedEnd, insertedEnd + rightLen)
                     }
-                    // If typing inside an existing span, carry that style over the insertion
                     val typedInsideThisSpan =
                         diff.insertedCount > 0 && s <= start && oldRemovedEnd <= e
                     if (typedInsideThisSpan) {
@@ -230,7 +221,6 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
             }
         }
 
-        // Apply sticky typing styles to the inserted text
         if (applyActive && diff.insertedCount > 0) {
             builder.safeAdd(activeStyle, start, insertedEnd)
         }
@@ -244,7 +234,6 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    // REFACTOR: Generic function to apply/remove styles to a selection.
     private fun toggleSelectionStyle(
         addStyle: SpanStyle,
         removeStyle: SpanStyle,
@@ -257,7 +246,6 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
         val builder = AnnotatedString.Builder()
         builder.append(content.text)
 
-        // Re-add all previous spans first
         content.annotatedString.spanStyles.forEach { r ->
             builder.addStyle(r.item, r.start, r.end)
         }
@@ -282,7 +270,6 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    // REFACTOR: Toggles now have two modes: cursor mode (update state) and selection mode (apply style).
     fun toggleBold() {
         val selection = _userInterfaceState.value.noteContent.selection
         if (selection.collapsed) {
@@ -322,11 +309,10 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    // REFACTOR: New function to handle font size changes.
     fun changeFontSize(delta: Int) {
         val selection = _userInterfaceState.value.noteContent.selection
         val currentSize = _userInterfaceState.value.currentTextFontSize
-        val newSize = (currentSize + delta).coerceIn(MIN_FONT_SIZE, MAX_FONT_SIZE)
+        val newSize = (currentSize + delta).coerceIn(MINIMUM_TEXT_FONT_SIZE_IN_PIXELS, MAXIMUM_TEXT_FONT_SIZE_IN_PIXELS)
 
         if (selection.collapsed) {
             _userInterfaceState.update { it.copy(currentTextFontSize = newSize) }
@@ -343,7 +329,7 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
                     noteContent = content.copy(
                         annotatedString = builder.toAnnotatedString()
                     ),
-                    currentTextFontSize = newSize // keep sticky for subsequent typing
+                    currentTextFontSize = newSize
                 )
             }
         }

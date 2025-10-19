@@ -14,7 +14,7 @@ import com.skytexcoder.mobilecomputingcoursekotlinjetpackcomposesuperapplication
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // To Support Edge-To-Edge Screen Layout Rendering, uncomment the following line:
+        // To Support Edge-To-Edge Screen Layout Rendering, you can uncomment the following line:
         enableEdgeToEdge()
         setContent {
             AndroidSuperApplicationTheme {
