@@ -35,6 +35,9 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
     val userInterfaceState = _userInterfaceState.asStateFlow()
 
     private var currentNoteID: Long? = null
+    private var originalTitle: String = ""
+    private var originalContent: String = ""
+    private var isNewNote: Boolean = true
 
     init {
         val NotesDAO = SuperApplicationDatabase.getDatabase(application).NoteDAO()
@@ -44,7 +47,7 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
     fun loadNoteByID(NoteID: Long) {
         if (NoteID == currentNoteID) return
         viewModelScope.launch {
-            val existing = if (NoteID <= 0) repository.getNoteByID(NoteID) else repository.getNoteByID(NoteID)
+            val existing = repository.getNoteByID(NoteID)
             if (existing != null && NoteID != -1L) {
                 currentNoteID = NoteID
                 val richTextData = try {
@@ -52,6 +55,10 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
                 } catch (exception: Exception) {
                     RichTextData(existing.content, emptyList())
                 }
+                originalTitle = existing.title
+                originalContent = existing.content
+                isNewNote = false
+
                 _userInterfaceState.update {
                     it.copy(
                         noteTitle = existing.title,
@@ -69,6 +76,10 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
                 } catch (exception: Exception) {
                     RichTextData(existing.content, emptyList())
                 }
+                originalTitle = existing.title
+                originalContent = existing.content
+                isNewNote = false
+
                 _userInterfaceState.update {
                     it.copy(
                         noteTitle = existing.title,
@@ -81,9 +92,15 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
                 }
             } else if (NoteID > 0) {
                 currentNoteID = null
+                originalTitle = ""
+                originalContent = ""
+                isNewNote = true
                 _userInterfaceState.value = NotesEditorUserInterfaceState(isThisNoteANewNote = true)
             } else {
                 currentNoteID = null
+                originalTitle = ""
+                originalContent = ""
+                isNewNote = true
                 _userInterfaceState.value = NotesEditorUserInterfaceState(isThisNoteANewNote = true)
             }
         }
@@ -174,6 +191,10 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
         val now = System.currentTimeMillis()
 
         val idToSave = currentNoteID?.takeIf { it > 0 } ?: 0L
+        if (!isNewNote && originalTitle == state.noteTitle && originalContent == contentJSON) {
+            return
+        }
+
         val createdAt = if (idToSave == 0L) {
             now
         } else {

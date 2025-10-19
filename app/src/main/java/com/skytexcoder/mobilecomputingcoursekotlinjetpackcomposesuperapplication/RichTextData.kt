@@ -48,6 +48,7 @@ fun AnnotatedString.toRichTextData(): RichTextData {
 }
 
 fun RichTextData.toAnnotatedString(): AnnotatedString {
+
     return buildAnnotatedString {
         append(text)
         spans.forEach { span ->

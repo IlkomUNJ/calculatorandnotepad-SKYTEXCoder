@@ -121,7 +121,7 @@ fun NotepadRichTextEditorScreenLayout(
                 onItalicClick = { viewModel.toggleItalic() },
                 onUnderLineClick = { viewModel.toggleUnderline() }
             )
-            // Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(10.dp))
             TextField(
                 value = currentUserInterfaceState.noteContent,
                 onValueChange = { viewModel.updateContent(it) },
@@ -153,6 +153,7 @@ private fun TextFormattingToolbar(
     if (!selection.collapsed) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
+            color = Color.Transparent,
             tonalElevation = 4.dp,
         ) {
             Row(

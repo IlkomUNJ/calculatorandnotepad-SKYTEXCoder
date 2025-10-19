@@ -86,7 +86,13 @@ fun NoteListItem(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Last modified: ${note.getFormattedModifiedDate()}",
+                text = "Last Modified: ${note.getFormattedModifiedDate()}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Created At: ${note.getFormattedCreationDateOfNote()}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
