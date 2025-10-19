@@ -1,15 +1,22 @@
 package com.skytexcoder.mobilecomputingcoursekotlinjetpackcomposesuperapplication
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -31,13 +38,17 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavController
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -46,6 +57,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.skytexcoder.mobilecomputingcoursekotlinjetpackcomposesuperapplication.ui.theme.AndroidSuperApplicationTheme
 import androidx.navigation.compose.rememberNavController
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -59,11 +71,19 @@ fun NotepadRichTextEditorScreenLayout(
         viewModel.loadNoteByID(NoteID)
     }
 
-    val scope = rememberCoroutineScope()
+    val scrollingState = rememberScrollState()
+
+    val editorBringIntoViewRequester = remember {
+        androidx.compose.foundation.relocation.BringIntoViewRequester()
+    }
+
+    val editorFocusRequester = remember { FocusRequester() }
+
+    val coroutineScope = rememberCoroutineScope()
     val currentUserInterfaceState by viewModel.userInterfaceState.collectAsStateWithLifecycle()
 
     BackHandler {
-        scope.launch {
+        coroutineScope.launch {
             viewModel.saveNoteANDWait()
             navController.navigateUp()
         }
@@ -76,7 +96,7 @@ fun NotepadRichTextEditorScreenLayout(
                 navigationIcon = {
                     IconButton(
                         onClick = {
-                            scope.launch {
+                            coroutineScope.launch {
                                 viewModel.saveNoteANDWait()
                                 navController.navigateUp()
                             }
@@ -102,6 +122,9 @@ fun NotepadRichTextEditorScreenLayout(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .imePadding()
+                .verticalScroll(scrollingState)
+                .padding(16.dp)
         ) {
             OutlinedTextField(
                 value = currentUserInterfaceState.noteTitle,
@@ -121,23 +144,49 @@ fun NotepadRichTextEditorScreenLayout(
                 onTextFontSizeIncrease = { viewModel.changeFontSize(1) },
                 onTextFontSizeDecrease = { viewModel.changeFontSize(-1) },
             )
-            Spacer(modifier = Modifier.height(10.dp))
-            TextField(
-                value = currentUserInterfaceState.noteContent,
-                onValueChange = { viewModel.updateContent(it) },
+            Spacer(modifier = Modifier.height(8.dp))
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                placeholder = { Text("Start writing the content of your own specific note here.....") },
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    disabledContainerColor = Color.Transparent,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                ),
-                textStyle = MaterialTheme.typography.bodyLarge
-            )
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Color.Transparent)
+                    .padding(2.dp)
+                    .bringIntoViewRequester(editorBringIntoViewRequester)
+            ) {
+                TextField(
+                    value = currentUserInterfaceState.noteContent,
+                    onValueChange = {
+                        viewModel.updateContent(it)
+                        coroutineScope.launch {
+                            delay(50)
+                            editorBringIntoViewRequester.bringIntoView()
+                        }
+                                    },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                        .focusRequester(editorFocusRequester)
+                        .onFocusChanged {
+                            focusState ->
+                            if (focusState.isFocused) {
+                                coroutineScope.launch {
+                                    delay(50)
+                                    editorBringIntoViewRequester.bringIntoView()
+                                }
+                            }
+                        },
+                    placeholder = { Text("Start writing/adding/modifying/editing the internal text contents of your own specific note item here.....") },
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        disabledContainerColor = Color.Transparent,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                    ),
+                    textStyle = MaterialTheme.typography.bodyLarge
+                )
+            }
         }
     }
 }

@@ -19,15 +19,22 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlin.math.min
 
 data class NotesEditorUserInterfaceState(
     val noteTitle: String = "",
-    val noteContent: TextFieldValue = TextFieldValue(""),
+    val noteContent: TextFieldValue = TextFieldValue(AnnotatedString("")),
     val isThisNoteANewNote: Boolean = true,
     val isTextBoldToggleCurrentlyEnabled: Boolean = false,
     val isTextItalicToggleCurrentlyEnabled: Boolean = false,
     val isTextUnderLineToggleCurrentlyEnabled: Boolean = false,
     val currentTextFontSize: Int = 16,
+)
+
+private data class TextEditDiff(
+    val start: Int,
+    val deletedCount: Int,
+    val insertedCount: Int,
 )
 
 class NotesEditorViewModel(application: Application) : AndroidViewModel(application) {
@@ -44,7 +51,7 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
     companion object {
         const val MIN_FONT_SIZE = 8
         const val MAX_FONT_SIZE = 40
-        private const val DEFAULTLY_APPLIED_FONT_SIZE = 16
+        private const val DEFAULT_APPLIED_FONT_SIZE = 16
     }
 
     init {
@@ -91,34 +98,150 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun updateContent(newContent: TextFieldValue) {
-        val oldContent = _userInterfaceState.value.noteContent
-        val textChanged = oldContent.text != newContent.text
-        val selectionCollapsed = newContent.selection.collapsed
-        var nextValue = newContent
-        if (textChanged && selectionCollapsed) {
-            nextValue = applyActiveTypingTextStyles(oldContent, newContent)
+        val old = _userInterfaceState.value.noteContent
+
+        // Selection or composition change only -> keep our annotated string intact.
+        if (old.text == newContent.text) {
+            _userInterfaceState.update {
+                it.copy(
+                    noteContent = old.copy(
+                        selection = newContent.selection,
+                        composition = newContent.composition
+                    )
+                )
+            }
+            return
         }
+
+        // Text changed -> remap spans over the edit and apply sticky typing styles.
+        val diff = computeDiff(old.text, newContent.text)
+        val active = currentActiveStyle()
+        val shouldApplyActive =
+            diff.insertedCount > 0 && (
+                    _userInterfaceState.value.isTextBoldToggleCurrentlyEnabled ||
+                            _userInterfaceState.value.isTextItalicToggleCurrentlyEnabled ||
+                            _userInterfaceState.value.isTextUnderLineToggleCurrentlyEnabled ||
+                            _userInterfaceState.value.currentTextFontSize != DEFAULT_APPLIED_FONT_SIZE
+                    )
+
+        val newAnnotated = rebuildAnnotatedAfterEdit(
+            oldAnnotated = old.annotatedString,
+            newPlainText = newContent.text,
+            diff = diff,
+            applyActive = shouldApplyActive,
+            activeStyle = active
+        )
+
         _userInterfaceState.update {
-            it.copy(noteContent = nextValue)
+            it.copy(
+                noteContent = TextFieldValue(
+                    annotatedString = newAnnotated,
+                    selection = newContent.selection,
+                    composition = newContent.composition
+                )
+            )
         }
     }
 
-    private fun applyActiveTypingTextStyles(oldContent: TextFieldValue, newContent: TextFieldValue): TextFieldValue {
-        val typedTextLength = newContent.text.length - oldContent.text.length
-        if (typedTextLength <= 0) return newContent // Not a simple typing action
-
-        val insertPosition = newContent.selection.start - typedTextLength
+    private fun currentActiveStyle(): SpanStyle {
         val state = _userInterfaceState.value
-        val activeStyle = SpanStyle(
+        return SpanStyle(
             fontWeight = if (state.isTextBoldToggleCurrentlyEnabled) FontWeight.Bold else null,
             fontStyle = if (state.isTextItalicToggleCurrentlyEnabled) FontStyle.Italic else null,
             textDecoration = if (state.isTextUnderLineToggleCurrentlyEnabled) TextDecoration.Underline else null,
             fontSize = state.currentTextFontSize.sp
         )
+    }
 
-        val builder = AnnotatedString.Builder(newContent.annotatedString)
-        builder.addStyle(activeStyle, insertPosition, insertPosition + typedTextLength)
-        return newContent.copy(annotatedString = builder.toAnnotatedString())
+    private fun computeDiff(oldText: String, newText: String): TextEditDiff {
+        val prefix = commonPrefix(oldText, newText)
+        val oldSuffixStart = oldText.length - commonSuffix(
+            oldText.substring(prefix),
+            newText.substring(prefix)
+        )
+        val newSuffixStart = newText.length - commonSuffix(
+            oldText.substring(prefix),
+            newText.substring(prefix)
+        )
+        val deleted = oldSuffixStart - prefix
+        val inserted = newSuffixStart - prefix
+        return TextEditDiff(prefix, deleted, inserted)
+    }
+
+    private fun commonPrefix(a: String, b: String): Int {
+        val n = min(a.length, b.length)
+        var i = 0
+        while (i < n && a[i] == b[i]) i++
+        return i
+    }
+
+    private fun commonSuffix(a: String, b: String): Int {
+        val na = a.length
+        val nb = b.length
+        var i = 0
+        while (i < na && i < nb && a[na - 1 - i] == b[nb - 1 - i]) i++
+        return i
+    }
+
+    private fun rebuildAnnotatedAfterEdit(
+        oldAnnotated: AnnotatedString,
+        newPlainText: String,
+        diff: TextEditDiff,
+        applyActive: Boolean,
+        activeStyle: SpanStyle
+    ): AnnotatedString {
+        val start = diff.start
+        val oldRemovedEnd = diff.start + diff.deletedCount
+        val insertedEnd = diff.start + diff.insertedCount
+        val delta = diff.insertedCount - diff.deletedCount
+
+        val builder = AnnotatedString.Builder()
+        builder.append(newPlainText)
+
+        // Remap old spans across the edit
+        for (range in oldAnnotated.spanStyles) {
+            val s = range.start
+            val e = range.end
+            val item = range.item
+
+            when {
+                // Completely before the edit
+                e <= start -> builder.safeAdd(item, s, e)
+
+                // Completely after the removed range -> shift by delta
+                s >= oldRemovedEnd -> builder.safeAdd(item, s + delta, e + delta)
+
+                else -> {
+                    // Overlaps the edited region
+                    // Left piece before edit
+                    if (s < start) builder.safeAdd(item, s, start)
+                    // Right piece after removed segment
+                    if (e > oldRemovedEnd) {
+                        val rightLen = e - oldRemovedEnd
+                        builder.safeAdd(item, insertedEnd, insertedEnd + rightLen)
+                    }
+                    // If typing inside an existing span, carry that style over the insertion
+                    val typedInsideThisSpan =
+                        diff.insertedCount > 0 && s <= start && oldRemovedEnd <= e
+                    if (typedInsideThisSpan) {
+                        builder.safeAdd(item, start, insertedEnd)
+                    }
+                }
+            }
+        }
+
+        // Apply sticky typing styles to the inserted text
+        if (applyActive && diff.insertedCount > 0) {
+            builder.safeAdd(activeStyle, start, insertedEnd)
+        }
+
+        return builder.toAnnotatedString()
+    }
+
+    private fun AnnotatedString.Builder.safeAdd(style: SpanStyle, start: Int, end: Int) {
+        if (start < end && start >= 0 && end <= this.length) {
+            addStyle(style, start, end)
+        }
     }
 
     // REFACTOR: Generic function to apply/remove styles to a selection.
@@ -131,12 +254,17 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
         val selection = content.selection
         if (selection.collapsed) return
 
-        val builder = AnnotatedString.Builder(content.annotatedString)
+        val builder = AnnotatedString.Builder()
+        builder.append(content.text)
+
+        // Re-add all previous spans first
+        content.annotatedString.spanStyles.forEach { r ->
+            builder.addStyle(r.item, r.start, r.end)
+        }
+
         val currentStyles = content.annotatedString.spanStyles.filter {
             it.start < selection.end && it.end > selection.start
         }
-
-        // If the style is present everywhere in the selection, remove it. Otherwise, add it.
         val shouldAdd = currentStyles.none { styleCheck(it.item) }
 
         if (shouldAdd) {
@@ -144,9 +272,12 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
         } else {
             builder.addStyle(removeStyle, selection.start, selection.end)
         }
+
         _userInterfaceState.update {
             it.copy(
-                noteContent = content.copy(annotatedString = builder.toAnnotatedString())
+                noteContent = content.copy(
+                    annotatedString = builder.toAnnotatedString()
+                )
             )
         }
     }
@@ -200,11 +331,19 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
         if (selection.collapsed) {
             _userInterfaceState.update { it.copy(currentTextFontSize = newSize) }
         } else {
-            val builder = AnnotatedString.Builder(_userInterfaceState.value.noteContent.annotatedString)
+            val content = _userInterfaceState.value.noteContent
+            val builder = AnnotatedString.Builder()
+            builder.append(content.text)
+            content.annotatedString.spanStyles.forEach { r ->
+                builder.addStyle(r.item, r.start, r.end)
+            }
             builder.addStyle(SpanStyle(fontSize = newSize.sp), selection.start, selection.end)
             _userInterfaceState.update {
                 it.copy(
-                    noteContent = _userInterfaceState.value.noteContent.copy(annotatedString = builder.toAnnotatedString())
+                    noteContent = content.copy(
+                        annotatedString = builder.toAnnotatedString()
+                    ),
+                    currentTextFontSize = newSize // keep sticky for subsequent typing
                 )
             }
         }
