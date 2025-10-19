@@ -8,6 +8,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
@@ -23,9 +24,10 @@ data class NotesEditorUserInterfaceState(
     val noteTitle: String = "",
     val noteContent: TextFieldValue = TextFieldValue(""),
     val isThisNoteANewNote: Boolean = true,
-    val isBold: Boolean = false,
-    val isItalic: Boolean = false,
-    val isUnderLine: Boolean = false,
+    val isTextBoldToggleCurrentlyEnabled: Boolean = false,
+    val isTextItalicToggleCurrentlyEnabled: Boolean = false,
+    val isTextUnderLineToggleCurrentlyEnabled: Boolean = false,
+    val currentTextFontSize: Int = 16,
 )
 
 class NotesEditorViewModel(application: Application) : AndroidViewModel(application) {
@@ -39,6 +41,11 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
     private var originalContent: String = ""
     private var isNewNote: Boolean = true
 
+    companion object {
+        const val MIN_FONT_SIZE = 8
+        const val MAX_FONT_SIZE = 40
+    }
+
     init {
         val NotesDAO = SuperApplicationDatabase.getDatabase(application).NoteDAO()
         repository = NotesRepository(NotesDAO)
@@ -48,7 +55,7 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
         if (NoteID == currentNoteID) return
         viewModelScope.launch {
             val existing = repository.getNoteByID(NoteID)
-            if (existing != null && NoteID != -1L) {
+            if (existing != null) {
                 currentNoteID = NoteID
                 val richTextData = try {
                     Json.decodeFromString<RichTextData>(existing.content)
@@ -58,7 +65,6 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
                 originalTitle = existing.title
                 originalContent = existing.content
                 isNewNote = false
-
                 _userInterfaceState.update {
                     it.copy(
                         noteTitle = existing.title,
@@ -69,33 +75,6 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
                         isThisNoteANewNote = false
                     )
                 }
-            } else if (existing != null && NoteID == -1L) {
-                currentNoteID = existing.id
-                val richTextData = try {
-                    Json.decodeFromString<RichTextData>(existing.content)
-                } catch (exception: Exception) {
-                    RichTextData(existing.content, emptyList())
-                }
-                originalTitle = existing.title
-                originalContent = existing.content
-                isNewNote = false
-
-                _userInterfaceState.update {
-                    it.copy(
-                        noteTitle = existing.title,
-                        noteContent = TextFieldValue(
-                            annotatedString = richTextData.toAnnotatedString(),
-                            selection = TextRange(richTextData.text.length)
-                        ),
-                        isThisNoteANewNote = false
-                    )
-                }
-            } else if (NoteID > 0) {
-                currentNoteID = null
-                originalTitle = ""
-                originalContent = ""
-                isNewNote = true
-                _userInterfaceState.value = NotesEditorUserInterfaceState(isThisNoteANewNote = true)
             } else {
                 currentNoteID = null
                 originalTitle = ""
@@ -111,17 +90,26 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun updateContent(newContent: TextFieldValue) {
-        val selection = newContent.selection
-        if (selection.collapsed) {
-            val styles = newContent.annotatedString.spanStyles
-                .filter { it.start <= selection.start && it.end >= selection.end }
+        val oldContent = _userInterfaceState.value.noteContent
+
+        if (oldContent.selection != newContent.selection) {
+            if (newContent.selection.collapsed) {
+                updateToolbarStateForCursor(newContent)
+            } else {
+                _userInterfaceState.update {
+                    it.copy(
+                        isTextBoldToggleCurrentlyEnabled = false,
+                        isTextItalicToggleCurrentlyEnabled = false,
+                        isTextUnderLineToggleCurrentlyEnabled = false,
+                    )
+                }
+            }
+        }
+
+        if (oldContent.text != newContent.text && newContent.selection.collapsed) {
+            val styledContent = applyActiveTypingTextStyles(oldContent, newContent)
             _userInterfaceState.update {
-                it.copy(
-                    noteContent = newContent,
-                    isBold = styles.any { style -> style.item.fontWeight == FontWeight.Bold },
-                    isItalic = styles.any { style -> style.item.fontStyle == FontStyle.Italic },
-                    isUnderLine = styles.any { style -> style.item.textDecoration == TextDecoration.Underline }
-                )
+                it.copy(noteContent = styledContent)
             }
         } else {
             _userInterfaceState.update {
@@ -130,55 +118,128 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    private fun applyStyle(
-        isStyleApplied: Boolean,
-        styleToAdd: SpanStyle,
-        styleToRemove: SpanStyle,
+    private fun updateToolbarStateForCursor(content: TextFieldValue) {
+        val position = content.selection.start
+        if (position > 0) {
+            val characterIndexPosition = position - 1
+            val textStylesForCursorPointer = content.annotatedString.spanStyles.filter {
+                characterIndexPosition >= it.start && characterIndexPosition < it.end
+            }
+            _userInterfaceState.update {
+                it.copy(
+                    isTextBoldToggleCurrentlyEnabled = textStylesForCursorPointer.any { style -> style.item.fontWeight == FontWeight.Bold },
+                    isTextItalicToggleCurrentlyEnabled = textStylesForCursorPointer.any { style -> style.item.fontStyle == FontStyle.Italic },
+                    isTextUnderLineToggleCurrentlyEnabled = textStylesForCursorPointer.any { style -> style.item.textDecoration == TextDecoration.Underline },
+                    currentTextFontSize = textStylesForCursorPointer.firstNotNullOfOrNull { style -> style.item.fontSize?.value?.toInt() } ?: it.currentTextFontSize
+                )
+            }
+        } else {
+            _userInterfaceState.update {
+                it.copy(
+                    isTextBoldToggleCurrentlyEnabled = false,
+                    isTextItalicToggleCurrentlyEnabled = false,
+                    isTextUnderLineToggleCurrentlyEnabled = false,
+                )
+            }
+        }
+    }
+
+    private fun applyActiveTypingTextStyles(oldContent: TextFieldValue, newContent: TextFieldValue): TextFieldValue {
+        val typedTextLength = newContent.text.length - oldContent.text.length
+        if (typedTextLength <= 0) return newContent // Not a simple typing action
+
+        val insertPosition = newContent.selection.start - typedTextLength
+        val state = _userInterfaceState.value
+        val activeStyle = SpanStyle(
+            fontWeight = if (state.isTextBoldToggleCurrentlyEnabled) FontWeight.Bold else null,
+            fontStyle = if (state.isTextItalicToggleCurrentlyEnabled) FontStyle.Italic else null,
+            textDecoration = if (state.isTextUnderLineToggleCurrentlyEnabled) TextDecoration.Underline else null,
+            fontSize = state.currentTextFontSize.sp
+        )
+
+        val builder = AnnotatedString.Builder(newContent.annotatedString)
+        builder.addStyle(activeStyle, insertPosition, insertPosition + typedTextLength)
+        return newContent.copy(annotatedString = builder.toAnnotatedString())
+    }
+
+    // REFACTOR: Generic function to apply/remove styles to a selection.
+    private fun toggleSelectionStyle(
+        addStyle: SpanStyle,
+        removeStyle: SpanStyle,
+        styleCheck: (SpanStyle) -> Boolean
     ) {
         val content = _userInterfaceState.value.noteContent
         val selection = content.selection
         if (selection.collapsed) return
 
         val builder = AnnotatedString.Builder(content.annotatedString)
+        val currentStyles = content.annotatedString.spanStyles.filter {
+            it.start < selection.end && it.end > selection.start
+        }
 
-        if (isStyleApplied) {
-            builder.addStyle(styleToRemove, selection.start, selection.end)
+        // If the style is present everywhere in the selection, remove it. Otherwise, add it.
+        val shouldAdd = currentStyles.none { styleCheck(it.item) }
+
+        if (shouldAdd) {
+            builder.addStyle(addStyle, selection.start, selection.end)
         } else {
-            builder.addStyle(styleToAdd, selection.start, selection.end)
+            builder.addStyle(removeStyle, selection.start, selection.end)
         }
         updateContent(content.copy(annotatedString = builder.toAnnotatedString()))
     }
 
+    // REFACTOR: Toggles now have two modes: cursor mode (update state) and selection mode (apply style).
     fun toggleBold() {
-        val isBold = _userInterfaceState.value.isBold
-        applyStyle(
-            isStyleApplied = isBold,
-            styleToAdd = SpanStyle(fontWeight = FontWeight.Bold),
-            styleToRemove = SpanStyle(fontWeight = FontWeight.Normal)
-        )
+        val selection = _userInterfaceState.value.noteContent.selection
+        if (selection.collapsed) {
+            _userInterfaceState.update { it.copy(isTextBoldToggleCurrentlyEnabled = !it.isTextBoldToggleCurrentlyEnabled) }
+        } else {
+            toggleSelectionStyle(
+                addStyle = SpanStyle(fontWeight = FontWeight.Bold),
+                removeStyle = SpanStyle(fontWeight = FontWeight.Normal),
+                styleCheck = { it.fontWeight == FontWeight.Bold }
+            )
+        }
     }
 
     fun toggleItalic() {
-        val isItalic = _userInterfaceState.value.isItalic
-        applyStyle(
-            isStyleApplied = isItalic,
-            styleToAdd = SpanStyle(fontStyle = FontStyle.Italic),
-            styleToRemove = SpanStyle(fontStyle = FontStyle.Normal),
-        )
+        val selection = _userInterfaceState.value.noteContent.selection
+        if (selection.collapsed) {
+            _userInterfaceState.update { it.copy(isTextItalicToggleCurrentlyEnabled = !it.isTextItalicToggleCurrentlyEnabled) }
+        } else {
+            toggleSelectionStyle(
+                addStyle = SpanStyle(fontStyle = FontStyle.Italic),
+                removeStyle = SpanStyle(fontStyle = FontStyle.Normal),
+                styleCheck = { it.fontStyle == FontStyle.Italic }
+            )
+        }
     }
 
     fun toggleUnderline() {
-        val isUnderLine = _userInterfaceState.value.isUnderLine
-        applyStyle(
-            isStyleApplied = isUnderLine,
-            styleToAdd = SpanStyle(textDecoration = TextDecoration.Underline),
-            styleToRemove = SpanStyle(textDecoration = TextDecoration.None)
-        )
+        val selection = _userInterfaceState.value.noteContent.selection
+        if (selection.collapsed) {
+            _userInterfaceState.update { it.copy(isTextUnderLineToggleCurrentlyEnabled = !it.isTextUnderLineToggleCurrentlyEnabled) }
+        } else {
+            toggleSelectionStyle(
+                addStyle = SpanStyle(textDecoration = TextDecoration.Underline),
+                removeStyle = SpanStyle(textDecoration = TextDecoration.None),
+                styleCheck = { it.textDecoration == TextDecoration.Underline }
+            )
+        }
     }
 
-    fun saveNote() {
-        viewModelScope.launch {
-            saveNoteANDWait()
+    // REFACTOR: New function to handle font size changes.
+    fun changeFontSize(delta: Int) {
+        val selection = _userInterfaceState.value.noteContent.selection
+        val currentSize = _userInterfaceState.value.currentTextFontSize
+        val newSize = (currentSize + delta).coerceIn(MIN_FONT_SIZE, MAX_FONT_SIZE)
+
+        if (selection.collapsed) {
+            _userInterfaceState.update { it.copy(currentTextFontSize = newSize) }
+        } else {
+            val builder = AnnotatedString.Builder(_userInterfaceState.value.noteContent.annotatedString)
+            builder.addStyle(SpanStyle(fontSize = newSize.sp), selection.start, selection.end)
+            updateContent(_userInterfaceState.value.noteContent.copy(annotatedString = builder.toAnnotatedString()))
         }
     }
 
@@ -190,22 +251,15 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
         val contentJSON = Json.encodeToString(contentToSave.toRichTextData())
         val now = System.currentTimeMillis()
 
-        val idToSave = currentNoteID?.takeIf { it > 0 } ?: 0L
         if (!isNewNote && originalTitle == state.noteTitle && originalContent == contentJSON) {
             return
         }
 
-        val createdAt = if (idToSave == 0L) {
-            now
-        } else {
-            repository.getNoteByID(currentNoteID!!)?.createdAt ?: now
-        }
-
         val note = Note(
-            id = idToSave,
+            id = currentNoteID ?: 0,
             title = state.noteTitle.ifBlank { "Currently Untitled Note" },
             content = contentJSON,
-            createdAt = createdAt,
+            createdAt = if (isNewNote) now else repository.getNoteByID(currentNoteID!!)?.createdAt ?: now,
             updatedAt = now,
         )
 

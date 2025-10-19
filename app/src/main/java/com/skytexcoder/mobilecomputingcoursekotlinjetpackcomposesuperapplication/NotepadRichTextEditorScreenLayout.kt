@@ -9,12 +9,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FormatBold
 import androidx.compose.material.icons.filled.FormatItalic
 import androidx.compose.material.icons.filled.FormatUnderlined
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,7 +37,9 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavController
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -56,12 +61,6 @@ fun NotepadRichTextEditorScreenLayout(
 
     val scope = rememberCoroutineScope()
     val currentUserInterfaceState by viewModel.userInterfaceState.collectAsStateWithLifecycle()
-
-    /* DisposableEffect(Unit) {
-        onDispose {
-            viewModel.saveNote()
-        }
-    } */
 
     BackHandler {
         scope.launch {
@@ -103,7 +102,6 @@ fun NotepadRichTextEditorScreenLayout(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                // .padding(16.dp)
         ) {
             OutlinedTextField(
                 value = currentUserInterfaceState.noteTitle,
@@ -119,7 +117,9 @@ fun NotepadRichTextEditorScreenLayout(
                 userInterfaceState = currentUserInterfaceState,
                 onBoldClick = { viewModel.toggleBold() },
                 onItalicClick = { viewModel.toggleItalic() },
-                onUnderLineClick = { viewModel.toggleUnderline() }
+                onUnderLineClick = { viewModel.toggleUnderline() },
+                onTextFontSizeIncrease = { viewModel.changeFontSize(1) },
+                onTextFontSizeDecrease = { viewModel.changeFontSize(-1) },
             )
             Spacer(modifier = Modifier.height(10.dp))
             TextField(
@@ -148,27 +148,52 @@ private fun TextFormattingToolbar(
     onBoldClick: () -> Unit,
     onItalicClick: () -> Unit,
     onUnderLineClick: () -> Unit,
+    onTextFontSizeIncrease: () -> Unit,
+    onTextFontSizeDecrease: () -> Unit,
 ) {
-    val selection = userInterfaceState.noteContent.selection
-    if (!selection.collapsed) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = Color.Transparent,
-            tonalElevation = 4.dp,
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.Transparent,
+        tonalElevation = 4.dp,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            IconToggleButton(
+                checked = userInterfaceState.isTextBoldToggleCurrentlyEnabled, onCheckedChange = { onBoldClick() }
             ) {
-                IconToggleButton(checked = userInterfaceState.isBold, onCheckedChange = { onBoldClick() }) {
-                    Icon(Icons.Default.FormatBold, contentDescription = "Bold")
-                }
-                IconToggleButton(checked = userInterfaceState.isItalic, onCheckedChange = { onItalicClick() }) {
-                    Icon(Icons.Default.FormatItalic, contentDescription = "Italic")
-                }
-                IconToggleButton(checked = userInterfaceState.isUnderLine, onCheckedChange = { onUnderLineClick() }) {
-                    Icon(Icons.Default.FormatUnderlined, contentDescription = "Underline")
-                }
+                Icon(Icons.Default.FormatBold, contentDescription = "Bold")
+            }
+            IconToggleButton(
+                checked = userInterfaceState.isTextItalicToggleCurrentlyEnabled, onCheckedChange = { onItalicClick() }
+            ) {
+                Icon(Icons.Default.FormatItalic, contentDescription = "Italic")
+            }
+            IconToggleButton(
+                checked = userInterfaceState.isTextUnderLineToggleCurrentlyEnabled, onCheckedChange = { onUnderLineClick() }
+            ) {
+                Icon(Icons.Default.FormatUnderlined, contentDescription = "UnderLine")
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            IconButton(
+                onClick = onTextFontSizeDecrease,
+                enabled = userInterfaceState.currentTextFontSize > NotesEditorViewModel.MIN_FONT_SIZE
+            ) {
+                Icon(Icons.Default.Remove, contentDescription = "Decrease The Font Size")
+            }
+            Text(
+                text = userInterfaceState.currentTextFontSize.toString(),
+                modifier = Modifier.width(30.dp),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodyMedium
+            )
+            IconButton(
+                onClick = onTextFontSizeIncrease,
+                enabled = userInterfaceState.currentTextFontSize < NotesEditorViewModel.MAX_FONT_SIZE
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Increase The Font Size")
             }
         }
     }
