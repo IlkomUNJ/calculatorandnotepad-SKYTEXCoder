@@ -44,6 +44,7 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
     companion object {
         const val MIN_FONT_SIZE = 8
         const val MAX_FONT_SIZE = 40
+        private const val DEFAULTLY_APPLIED_FONT_SIZE = 16
     }
 
     init {
@@ -91,56 +92,14 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
 
     fun updateContent(newContent: TextFieldValue) {
         val oldContent = _userInterfaceState.value.noteContent
-
-        if (oldContent.selection != newContent.selection) {
-            if (newContent.selection.collapsed) {
-                updateToolbarStateForCursor(newContent)
-            } else {
-                _userInterfaceState.update {
-                    it.copy(
-                        isTextBoldToggleCurrentlyEnabled = false,
-                        isTextItalicToggleCurrentlyEnabled = false,
-                        isTextUnderLineToggleCurrentlyEnabled = false,
-                    )
-                }
-            }
+        val textChanged = oldContent.text != newContent.text
+        val selectionCollapsed = newContent.selection.collapsed
+        var nextValue = newContent
+        if (textChanged && selectionCollapsed) {
+            nextValue = applyActiveTypingTextStyles(oldContent, newContent)
         }
-
-        if (oldContent.text != newContent.text && newContent.selection.collapsed) {
-            val styledContent = applyActiveTypingTextStyles(oldContent, newContent)
-            _userInterfaceState.update {
-                it.copy(noteContent = styledContent)
-            }
-        } else {
-            _userInterfaceState.update {
-                it.copy(noteContent = newContent)
-            }
-        }
-    }
-
-    private fun updateToolbarStateForCursor(content: TextFieldValue) {
-        val position = content.selection.start
-        if (position > 0) {
-            val characterIndexPosition = position - 1
-            val textStylesForCursorPointer = content.annotatedString.spanStyles.filter {
-                characterIndexPosition >= it.start && characterIndexPosition < it.end
-            }
-            _userInterfaceState.update {
-                it.copy(
-                    isTextBoldToggleCurrentlyEnabled = textStylesForCursorPointer.any { style -> style.item.fontWeight == FontWeight.Bold },
-                    isTextItalicToggleCurrentlyEnabled = textStylesForCursorPointer.any { style -> style.item.fontStyle == FontStyle.Italic },
-                    isTextUnderLineToggleCurrentlyEnabled = textStylesForCursorPointer.any { style -> style.item.textDecoration == TextDecoration.Underline },
-                    currentTextFontSize = textStylesForCursorPointer.firstNotNullOfOrNull { style -> style.item.fontSize?.value?.toInt() } ?: it.currentTextFontSize
-                )
-            }
-        } else {
-            _userInterfaceState.update {
-                it.copy(
-                    isTextBoldToggleCurrentlyEnabled = false,
-                    isTextItalicToggleCurrentlyEnabled = false,
-                    isTextUnderLineToggleCurrentlyEnabled = false,
-                )
-            }
+        _userInterfaceState.update {
+            it.copy(noteContent = nextValue)
         }
     }
 
@@ -185,7 +144,11 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
         } else {
             builder.addStyle(removeStyle, selection.start, selection.end)
         }
-        updateContent(content.copy(annotatedString = builder.toAnnotatedString()))
+        _userInterfaceState.update {
+            it.copy(
+                noteContent = content.copy(annotatedString = builder.toAnnotatedString())
+            )
+        }
     }
 
     // REFACTOR: Toggles now have two modes: cursor mode (update state) and selection mode (apply style).
@@ -239,7 +202,11 @@ class NotesEditorViewModel(application: Application) : AndroidViewModel(applicat
         } else {
             val builder = AnnotatedString.Builder(_userInterfaceState.value.noteContent.annotatedString)
             builder.addStyle(SpanStyle(fontSize = newSize.sp), selection.start, selection.end)
-            updateContent(_userInterfaceState.value.noteContent.copy(annotatedString = builder.toAnnotatedString()))
+            _userInterfaceState.update {
+                it.copy(
+                    noteContent = _userInterfaceState.value.noteContent.copy(annotatedString = builder.toAnnotatedString())
+                )
+            }
         }
     }
 
