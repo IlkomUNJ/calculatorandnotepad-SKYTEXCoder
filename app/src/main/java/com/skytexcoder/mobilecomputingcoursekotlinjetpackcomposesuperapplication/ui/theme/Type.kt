@@ -1,4 +1,4 @@
-package com.skytexcoder.calculatorapplication.ui.theme
+package com.skytexcoder.mobilecomputingcoursekotlinjetpackcomposesuperapplication.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

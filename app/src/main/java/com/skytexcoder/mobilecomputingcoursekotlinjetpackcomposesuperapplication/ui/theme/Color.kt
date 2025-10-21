@@ -1,4 +1,4 @@
-package com.skytexcoder.calculatorapplication.ui.theme
+package com.skytexcoder.mobilecomputingcoursekotlinjetpackcomposesuperapplication.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

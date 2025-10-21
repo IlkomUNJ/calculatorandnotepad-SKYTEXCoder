@@ -1,6 +1,5 @@
-package com.skytexcoder.calculatorapplication
+package com.skytexcoder.mobilecomputingcoursekotlinjetpackcomposesuperapplication
 
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.compositionLocalOf
 import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
