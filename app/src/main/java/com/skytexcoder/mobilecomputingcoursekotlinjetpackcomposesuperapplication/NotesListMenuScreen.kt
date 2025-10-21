@@ -106,9 +106,6 @@ fun NoteListItem(
     }
 }
 
-
-
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotesListScreen(
@@ -159,7 +156,6 @@ fun NotesListScreen(
                     )
                 )
             }
-
         },
         floatingActionButton = {
             if (!currentUserInterfaceState.isCurrentlyInSelectionMode) {
