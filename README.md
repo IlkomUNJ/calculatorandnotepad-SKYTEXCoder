@@ -2,7 +2,7 @@
 
 This is the final project submission for the Mobile Computing course, that aims to demonstrate a feature-rich scientific calculator as well as a note-taking application built with Kotlin and Jetpack Compose.
 
-## 📅 Assignment Details
+## 📅 Review The Assignment's Due Date
 
 [![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/0paiblyv)
 
